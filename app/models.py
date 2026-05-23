@@ -27,4 +27,20 @@ class Task(BaseModel):
     priority: TaskPriority
     due_date: date | None
     status: TaskStatus
+    assigned_to: str | None
     done: bool
+
+
+class TaskAssignment(BaseModel):
+    email: str = Field(..., min_length=3)
+
+
+class UserCreate(BaseModel):
+    name: str = Field(..., min_length=1)
+    email: str = Field(..., min_length=3)
+
+
+class User(BaseModel):
+    id: int
+    name: str
+    email: str
