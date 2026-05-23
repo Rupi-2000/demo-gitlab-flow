@@ -7,6 +7,10 @@ def _row_to_task(row) -> Task:
         id=row["id"],
         title=row["title"],
         description=row["description"],
+        priority=row["priority"],
+        due_date=row["due_date"],
+        status=row["status"],
+        assigned_to=row["assigned_to"],
         done=bool(row["done"]),
     )
 
@@ -14,11 +18,28 @@ def _row_to_task(row) -> Task:
 def create_task(task: TaskCreate) -> Task:
     with get_connection() as connection:
         cursor = connection.execute(
-            "INSERT INTO tasks (title, description) VALUES (?, ?)",
-            (task.title, task.description),
+            """
+            INSERT INTO tasks (
+                title, description, priority, due_date, status, assigned_to, done
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                task.title,
+                task.description,
+                task.priority,
+                task.due_date.isoformat() if task.due_date else None,
+                task.status,
+                None,
+                1 if task.status == "done" else 0,
+            ),
         )
         row = connection.execute(
-            "SELECT id, title, description, done FROM tasks WHERE id = ?",
+            """
+            SELECT id, title, description, priority, due_date, status, assigned_to, done
+            FROM tasks
+            WHERE id = ?
+            """,
             (cursor.lastrowid,),
         ).fetchone()
 
@@ -26,7 +47,10 @@ def create_task(task: TaskCreate) -> Task:
 
 
 def list_tasks(open_only: bool = False) -> list[Task]:
-    query = "SELECT id, title, description, done FROM tasks"
+    query = """
+        SELECT id, title, description, priority, due_date, status, assigned_to, done
+        FROM tasks
+    """
     params = ()
 
     if open_only:
@@ -43,9 +67,16 @@ def list_tasks(open_only: bool = False) -> list[Task]:
 
 def complete_task(task_id: int) -> Task | None:
     with get_connection() as connection:
-        connection.execute("UPDATE tasks SET done = 1 WHERE id = ?", (task_id,))
+        connection.execute(
+            "UPDATE tasks SET done = 1, status = 'done' WHERE id = ?",
+            (task_id,),
+        )
         row = connection.execute(
-            "SELECT id, title, description, done FROM tasks WHERE id = ?",
+            """
+            SELECT id, title, description, priority, due_date, status, assigned_to, done
+            FROM tasks
+            WHERE id = ?
+            """,
             (task_id,),
         ).fetchone()
 
@@ -54,3 +85,46 @@ def complete_task(task_id: int) -> Task | None:
 
     return _row_to_task(row)
 
+
+def update_task_status(task_id: int, status: str) -> Task | None:
+    done = 1 if status == "done" else 0
+
+    with get_connection() as connection:
+        connection.execute(
+            "UPDATE tasks SET status = ?, done = ? WHERE id = ?",
+            (status, done, task_id),
+        )
+        row = connection.execute(
+            """
+            SELECT id, title, description, priority, due_date, status, assigned_to, done
+            FROM tasks
+            WHERE id = ?
+            """,
+            (task_id,),
+        ).fetchone()
+
+    if row is None:
+        return None
+
+    return _row_to_task(row)
+
+
+def assign_task(task_id: int, email: str) -> Task | None:
+    with get_connection() as connection:
+        connection.execute(
+            "UPDATE tasks SET assigned_to = ? WHERE id = ?",
+            (email, task_id),
+        )
+        row = connection.execute(
+            """
+            SELECT id, title, description, priority, due_date, status, assigned_to, done
+            FROM tasks
+            WHERE id = ?
+            """,
+            (task_id,),
+        ).fetchone()
+
+    if row is None:
+        return None
+
+    return _row_to_task(row)

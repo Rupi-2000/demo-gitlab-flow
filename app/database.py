@@ -26,8 +26,42 @@ def init_db() -> None:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 title TEXT NOT NULL,
                 description TEXT NOT NULL DEFAULT '',
+                priority TEXT NOT NULL DEFAULT 'normal',
+                due_date TEXT,
+                status TEXT NOT NULL DEFAULT 'open',
+                assigned_to TEXT,
                 done INTEGER NOT NULL DEFAULT 0
             )
             """
         )
 
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                email TEXT NOT NULL UNIQUE
+            )
+            """
+        )
+
+        task_columns = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(tasks)").fetchall()
+        }
+
+        if "priority" not in task_columns:
+            connection.execute(
+                "ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'normal'"
+            )
+
+        if "due_date" not in task_columns:
+            connection.execute("ALTER TABLE tasks ADD COLUMN due_date TEXT")
+
+        if "status" not in task_columns:
+            connection.execute(
+                "ALTER TABLE tasks ADD COLUMN status TEXT NOT NULL DEFAULT 'open'"
+            )
+
+        if "assigned_to" not in task_columns:
+            connection.execute("ALTER TABLE tasks ADD COLUMN assigned_to TEXT")
